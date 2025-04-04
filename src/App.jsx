@@ -2,121 +2,164 @@ import React, { useState } from 'react';
 import './App.css';
 
 function BookingForm() {
-  // Основные поля
+  // Основные поля формы
   const [date, setDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  
-  // Храним кол-во кортов как строку, чтобы можно было стирать значение
-  const [courtQuantity, setCourtQuantity] = useState("1");
 
-  // Данные по каждому корту
-  const [bookings, setBookings] = useState([
-    { court: '', selectedTime: '', price: '' }
-  ]);
+  // Слоты, полученные с сервера (GET-запрос)
+  // Формат: [{ time: "9:00", courts: [ { court_id, price }, ... ] }, ...]
+  const [availableSlots, setAvailableSlots] = useState([]);
+  // Выбранные пользователем слоты: { time: "9:00", court: { court_id, price } }
+  const [selectedBookings, setSelectedBookings] = useState([]);
+  // Сообщение об ошибках или успехе
+  const [formMessage, setFormMessage] = useState('');
 
-  // Для отображения ошибок (инлайн)
-  const [errors, setErrors] = useState({});
-  // Для вывода общей ошибки/успешного сообщения
-  const [formError, setFormError] = useState('');
-
-  // Список доступных времён и цен
-  const times = [
-    { time: '10:00', price: 20 },
-    { time: '12:00', price: 25 },
-    { time: '14:00', price: 30 },
+  // Список часов (для выпадающих списков, строки вида "09:00")
+  const hours = [
+    '08:00','09:00','10:00','11:00','12:00',
+    '13:00','14:00','15:00','16:00','17:00',
+    '18:00','19:00','20:00','21:00','22:00'
   ];
 
-  // Изменение кол-ва кортов
-  const handleQuantityChange = (e) => {
-    const value = e.target.value;
-    setFormError('');
-    setErrors({});
-    
-    // Разрешаем поле быть пустым
-    if (value === "") {
-      setCourtQuantity("");
-      setBookings([]);
+  // URL вашего FastAPI‑сервера
+  const BASE_URL = 'http://109.73.201.110:8000';
+
+  /**
+   * GET-запрос для получения свободного времени корта.
+   * Сервер ожидает: GET /free_time/{date}/{start_time}/{end_time}
+   * start_time и end_time — целые числа (например, 9 и 16).
+   */
+  const handleSearch = async () => {
+    setFormMessage('');
+    setAvailableSlots([]);
+    setSelectedBookings([]);
+
+    if (!date || !startTime || !endTime) {
+      setFormMessage('Пожалуйста, укажите дату и время');
       return;
     }
-    const parsed = Number(value);
-    if (!isNaN(parsed) && parsed >= 1) {
-      setCourtQuantity(value);
-      // Увеличиваем/уменьшаем массив бронирований
-      setBookings((prev) => {
-        const updated = [...prev];
-        while (updated.length < parsed) {
-          updated.push({ court: '', selectedTime: '', price: '' });
-        }
-        return updated.slice(0, parsed);
-      });
-    }
-  };
 
-  // Выбор корта для одного из блоков
-  const handleCourtChange = (index, value) => {
-    setFormError('');
-    setErrors({});
-    setBookings((prev) => {
-      const updated = [...prev];
-      updated[index] = { court: value, selectedTime: '', price: '' };
-      return updated;
-    });
-  };
-
-  // Выбор времени
-  const handleTimeChange = (index, value) => {
-    setFormError('');
-    setErrors({});
-    const found = times.find(t => t.time === value);
-    setBookings((prev) => {
-      const updated = [...prev];
-      if (found) {
-        updated[index].selectedTime = found.time;
-        updated[index].price = found.price;
-      } else {
-        updated[index].selectedTime = '';
-        updated[index].price = '';
+    // Извлекаем числовой час из выбранных значений (например, "09:00" → 9)
+    const startHour = parseInt(startTime.split(':')[0], 10);
+    const endHour = parseInt(endTime.split(':')[0], 10);
+    console.log(startHour, endHour)
+    const url = `${BASE_URL}/free_time/${date}/${startHour}/${endHour}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await response.json();
+        setFormMessage(`Ошибка: ${errorData.detail || 'Не удалось получить данные'}`);
+        return;
       }
-      return updated;
-    });
+      const data = await response.json();
+      // Преобразуем объект с ключами-часами (например, "9", "10") в массив слотов
+      const slots = Object.keys(data)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(hourKey => ({
+          time: hourKey + ":00",
+          courts: data[hourKey]
+        }));
+      setAvailableSlots(slots);
+    } catch (error) {
+      console.error('Ошибка при получении свободных кортов:', error);
+      setFormMessage('Ошибка сети. Попробуйте позже.');
+    }
   };
 
-  // Проверка и "оплата"
-  const handlePayment = () => {
-    const newErrors = {};
-    if (!date) newErrors.date = 'Выберите дату';
-    if (!name.trim()) newErrors.name = 'Введите имя';
-    if (!phone.trim()) newErrors.phone = 'Введите телефон';
-
-    const quantityNum = Number(courtQuantity);
-    if (!quantityNum || quantityNum < 1) {
-      newErrors.courtQuantity = 'Укажите корректное количество кортов';
+  /**
+   * Переключение выбора слота.
+   * При клике добавляется/удаляется выбранный корт для определённого времени.
+   */
+  const toggleSelection = (slotTime, court) => {
+    const exists = selectedBookings.find(
+      (b) => b.time === slotTime && b.court.court_id === court.court_id
+    );
+    if (exists) {
+      setSelectedBookings(selectedBookings.filter(
+        (b) => !(b.time === slotTime && b.court.court_id === court.court_id)
+      ));
+    } else {
+      setSelectedBookings([...selectedBookings, { time: slotTime, court }]);
     }
+  };
 
-    // Проверяем каждый блок
-    bookings.forEach((b, i) => {
-      if (!b.court) newErrors[`court-${i}`] = 'Выберите корт';
-      if (!b.selectedTime) newErrors[`time-${i}`] = 'Выберите время';
-    });
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) {
-      setFormError('Пожалуйста, заполните все обязательные поля');
+  /**
+   * POST-запрос для создания бронирования.
+   * Формируется объект, соответствующий модели BookingPost:
+   * {
+   *   "name": "...",
+   *   "email": "...",
+   *   "phone": "...",
+   *   "date": "YYYY-MM-DD",
+   *   "total_price": <число>,
+   *   "slots": { "1": [9, 10], "2": [11] }
+   * }
+   */
+  const handleBooking = async () => {
+    if (!name.trim() || !email.trim() || !phone.trim()) {
+      setFormMessage('Пожалуйста, укажите имя, email и телефон для бронирования');
+      return;
+    }
+    if (selectedBookings.length === 0) {
+      setFormMessage('Пожалуйста, выберите хотя бы один слот для бронирования');
       return;
     }
 
-    // Если всё ОК — показываем "успешно"
-    const total = bookings.reduce((sum, b) => sum + (b.price || 0), 0);
-    setFormError(`✅ Бронирование успешно! Общая цена: ${total} руб.`);
+    // Группируем выбранные слоты по court_id, собирая массив числовых start_time
+    const slotsPayload = {};
+    selectedBookings.forEach(booking => {
+      const hour = parseInt(booking.time.split(':')[0], 10);
+      const courtId = booking.court.court_id;
+      if (!slotsPayload[courtId]) {
+        slotsPayload[courtId] = [];
+      }
+      slotsPayload[courtId].push(hour);
+    });
+
+    // Подсчитываем общую стоимость
+    const totalPrice = selectedBookings.reduce(
+      (sum, booking) => sum + booking.court.price, 0
+    );
+
+    const payload = {
+      name,
+      email,
+      phone,
+      date,          // в формате "YYYY-MM-DD"
+      total_price: totalPrice,
+      slots: slotsPayload
+    };
+
+    try {
+      const response = await fetch(`${BASE_URL}/bookings/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        setFormMessage(`Ошибка: ${errorData.detail || 'Не удалось выполнить бронирование'}`);
+        return;
+      }
+      const data = await response.json();
+      setFormMessage(`✅ Бронирование успешно! Перейдите по ссылке для оплаты: ${data.url}`);
+    } catch (error) {
+      console.error('Ошибка при отправке данных на бэкенд:', error);
+      setFormMessage('Ошибка сети. Попробуйте позже.');
+    }
   };
 
   return (
     <div className="booking-form">
       <h2>Бронирование</h2>
 
-      {/* Дата */}
+      {/* Выбор даты */}
       <div className="form-group">
         <label>Дата:</label>
         <input
@@ -124,15 +167,47 @@ function BookingForm() {
           value={date}
           onChange={(e) => {
             setDate(e.target.value);
-            setFormError('');
-            setErrors({});
+            setFormMessage('');
           }}
           className="input-field"
         />
-        {errors.date && <p className="error">{errors.date}</p>}
       </div>
 
-      {/* Имя */}
+      {/* Выбор времени (только часы) */}
+      <div className="form-group">
+        <label>Время начала:</label>
+        <select
+          value={startTime}
+          onChange={(e) => {
+            setStartTime(e.target.value);
+            setFormMessage('');
+          }}
+          className="input-field"
+        >
+          <option value="">Выберите время начала</option>
+          {hours.map((hour, i) => (
+            <option key={i} value={hour}>{hour}</option>
+          ))}
+        </select>
+      </div>
+      <div className="form-group">
+        <label>Время окончания:</label>
+        <select
+          value={endTime}
+          onChange={(e) => {
+            setEndTime(e.target.value);
+            setFormMessage('');
+          }}
+          className="input-field"
+        >
+          <option value="">Выберите время окончания</option>
+          {hours.map((hour, i) => (
+            <option key={i} value={hour}>{hour}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Ввод имени, email и телефона */}
       <div className="form-group">
         <label>Имя:</label>
         <input
@@ -140,16 +215,25 @@ function BookingForm() {
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            setFormError('');
-            setErrors({});
+            setFormMessage('');
           }}
           className="input-field"
           placeholder="Введите ваше имя"
         />
-        {errors.name && <p className="error">{errors.name}</p>}
       </div>
-
-      {/* Телефон */}
+      <div className="form-group">
+        <label>Email:</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setFormMessage('');
+          }}
+          className="input-field"
+          placeholder="Введите ваш email"
+        />
+      </div>
       <div className="form-group">
         <label>Телефон:</label>
         <input
@@ -157,75 +241,55 @@ function BookingForm() {
           value={phone}
           onChange={(e) => {
             setPhone(e.target.value);
-            setFormError('');
-            setErrors({});
+            setFormMessage('');
           }}
           className="input-field"
           placeholder="Введите номер телефона"
         />
-        {errors.phone && <p className="error">{errors.phone}</p>}
       </div>
 
-      {/* Кол-во кортов */}
-      <div className="form-group">
-        <label>Количество кортов:</label>
-        <input
-          type="number"
-          value={courtQuantity}
-          onChange={handleQuantityChange}
-          className="input-field"
-          min="1"
-        />
-        {errors.courtQuantity && <p className="error">{errors.courtQuantity}</p>}
-      </div>
-
-      {/* Динамические блоки по количеству кортов */}
-      {bookings.map((b, i) => (
-        <div key={i} className="booking-section">
-          <h4>Корт {i + 1}</h4>
-
-          <div className="form-group">
-            <label>Корт:</label>
-            <select
-              value={b.court}
-              onChange={(e) => handleCourtChange(i, e.target.value)}
-              className="input-field"
-            >
-              <option value="">Выберите корт</option>
-              <option value="Корт 1">Корт 1</option>
-              <option value="Корт 2">Корт 2</option>
-              <option value="Корт 3">Корт 3</option>
-            </select>
-            {errors[`court-${i}`] && <p className="error">{errors[`court-${i}`]}</p>}
-          </div>
-
-          <div className="form-group">
-            <label>Время:</label>
-            <select
-              value={b.selectedTime}
-              onChange={(e) => handleTimeChange(i, e.target.value)}
-              className="input-field"
-              disabled={!b.court}
-            >
-              <option value="">Выберите время</option>
-              {times.map((t) => (
-                <option key={t.time} value={t.time}>
-                  {t.time} ({t.price} руб.)
-                </option>
-              ))}
-            </select>
-            {errors[`time-${i}`] && <p className="error">{errors[`time-${i}`]}</p>}
-          </div>
-        </div>
-      ))}
-
-      {/* Общая ошибка / успех */}
-      {formError && <p className="form-error">{formError}</p>}
-
-      {/* Кнопка */}
-      <button onClick={handlePayment} className="btn">
-        Оплатить
+      {/* Кнопка для получения свободных кортов */}
+      <button onClick={handleSearch} className="btn">
+        Найти доступные корты
       </button>
+
+      {/* Вывод слотов, полученных с сервера */}
+      {availableSlots.length > 0 && (
+        <div className="slots-container">
+          <h3>Доступные слоты:</h3>
+          {availableSlots.map((slot, idx) => (
+            <div key={idx} className="booking-section">
+              <h4>{slot.time}</h4>
+              <div className="courts-container">
+                {slot.courts.map((court, i) => {
+                  const isSelected = selectedBookings.some(
+                    (b) => b.time === slot.time && b.court.court_id === court.court_id
+                  );
+                  return (
+                    <button
+                      key={i}
+                      className={`btn court-btn ${isSelected ? 'selected' : ''}`}
+                      onClick={() => toggleSelection(slot.time, court)}
+                    >
+                      Корт {court.court_id} ({court.price} руб.)
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Вывод сообщения */}
+      {formMessage && <p className="form-message">{formMessage}</p>}
+
+      {/* Кнопка для отправки бронирования */}
+      {availableSlots.length > 0 && (
+        <button onClick={handleBooking} className="btn">
+          Оплатить
+        </button>
+      )}
     </div>
   );
 }
