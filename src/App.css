@@ -1,0 +1,159 @@
+/* Сброс и базовые стили */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #121212;
+  font-family: Arial, sans-serif;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+* {
+  box-sizing: inherit;
+}
+
+/* Корневой контейнер */
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+/* Основная обёртка */
+.App {
+  width: 100%;
+  max-width: 800px; /* можно 600, 700, 800 - на вкус */
+  padding: 2rem 1rem;
+}
+
+/* Форма */
+.booking-form {
+  width: 100%;
+  background: #1e1e1e;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  animation: fadeIn 0.5s ease;
+}
+
+.booking-form h2 {
+  font-size: 2rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+/* Блок для каждого корта */
+.booking-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+}
+
+.booking-section h4 {
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Группы полей */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+/* Поля ввода */
+.input-field {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background-color: #2e2e2e;
+  color: #fff;
+  font-size: 1rem;
+  transition: border 0.3s ease, box-shadow 0.3s ease;
+}
+
+.input-field::placeholder {
+  color: #bbb;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #9c27b0;
+  box-shadow: 0 0 5px #4caf50;
+}
+
+/* Кнопка */
+.btn {
+  display: inline-block;
+  width: 100%;
+  padding: 0.85rem;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(45deg, #9c27b0, #4caf50);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1.25rem;
+  transition: all 0.3s ease;
+}
+
+.btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 10px #9c27b0;
+}
+
+/* Сообщения об ошибках */
+.error {
+  font-size: 0.875rem;
+  color: #f44336;
+  margin-top: 0.25rem;
+}
+
+.form-error {
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: bold;
+  color: #ff9800;
+}
+
+/* Адаптив для маленьких экранов */
+@media (max-width: 600px) {
+  .booking-form {
+    padding: 1.5rem 1rem;
+    border-radius: 10px;
+  }
+
+  .booking-form h2 {
+    font-size: 1.6rem;
+  }
+
+  .input-field {
+    font-size: 0.95rem;
+  }
+
+  .btn {
+    font-size: 0.95rem;
+  }
+}
+
+/* Анимация появления */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+  
