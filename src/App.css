@@ -1,4 +1,3 @@
-/* Сброс и базовые стили */
 html, body {
   margin: 0;
   padding: 0;
@@ -10,11 +9,10 @@ html, body {
   box-sizing: border-box;
 }
 
-* {
+*, *::before, *::after {
   box-sizing: inherit;
 }
 
-/* Корневой контейнер — центрирование по вертикали и горизонтали */
 #root {
   display: flex;
   justify-content: center;
@@ -22,14 +20,30 @@ html, body {
   min-height: 100vh;
 }
 
-/* Основная обёртка */
+.time-window-header {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ccc;         
+  background-color: #2e2e2e;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.time-window-subheading {
+  font-size: 1.3rem;   
+  margin: 1rem 0 0.5rem 0;
+  font-weight: 600;  
+  color: #fff;         
+}
+
+
 .App {
   width: 100%;
   max-width: 800px;
   padding: 2rem 1rem;
 }
 
-/* Форма */
 .booking-form {
   width: 100%;
   background: #1e1e1e;
@@ -45,7 +59,6 @@ html, body {
   margin-bottom: 1.5rem;
 }
 
-/* Группы полей */
 .form-group {
   margin-bottom: 1.25rem;
 }
@@ -57,16 +70,16 @@ html, body {
   font-size: 1rem;
 }
 
-/* Поля ввода */
 .input-field {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   border: 2px solid transparent;
   border-radius: 6px;
   background-color: #2e2e2e;
   color: #fff;
   font-size: 1rem;
   transition: border 0.3s ease, box-shadow 0.3s ease;
+  appearance: none; 
 }
 
 .input-field::placeholder {
@@ -79,14 +92,29 @@ html, body {
   box-shadow: 0 0 5px #4caf50;
 }
 
-/* Общие стили кнопок */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;      
+  cursor: pointer;
+}
+
+.select-hour {
+  -webkit-appearance: none; 
+  -moz-appearance: none; 
+  appearance: none;
+  background-image: none; 
+}
+
+.select-hour::-ms-expand {
+  display: none;
+}
+
 .btn {
   display: inline-block;
   width: 100%;
   padding: 0.85rem;
   border: none;
   border-radius: 6px;
-  background: linear-gradient(45deg, #9c27b0, #4caf50);
+  background: linear-gradient(45deg, #555555, #333333);
   color: #fff;
   font-size: 1rem;
   cursor: pointer;
@@ -96,26 +124,37 @@ html, body {
 
 .btn:hover {
   transform: scale(1.02);
-  box-shadow: 0 0 10px #9c27b0;
+  box-shadow: 0 0 10px rgba(85,85,85,0.8);
 }
 
-/* Стили для кнопок выбора кортов */
 .court-btn {
   margin: 0.25rem;
-  width: auto;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
-}
-
-/* -- ВАЖНО: Новая голубая подсветка для выбранных окошек -- */
-.court-btn.selected {
-  background: linear-gradient(45deg, #2196f3, #0d47a1);
-  border: 2px solid #2196f3;
+  border: 2px solid transparent; 
+  background: #2e2e2e;  
   color: #fff;
-  box-shadow: 0 0 8px #2196f3;
+  transition: 
+    background 0.3s ease, 
+    transform 0.2s ease, 
+    border-color 0.3s ease, 
+    box-shadow 0.3s ease;
 }
 
-/* Слоты и секции бронирования */
+.court-btn:hover {
+  transform: translateY(-2px);
+  border-color: #888;           
+  box-shadow: 0 0 6px #888;   
+  background: #606060;         
+}
+
+.court-btn.selected {
+  background: linear-gradient(45deg, #707070, #505050);
+  border-color: #aaaaaa;       
+  color: #fff;
+  box-shadow: 0 0 8px #aaaaaa; 
+}
+
 .slots-container {
   margin-top: 1.5rem;
 }
@@ -136,7 +175,6 @@ html, body {
   flex-wrap: wrap;
 }
 
-/* Сообщения */
 .form-message {
   text-align: center;
   margin-top: 1rem;
@@ -144,7 +182,14 @@ html, body {
   color: #ff9800;
 }
 
-/* Адаптив для маленьких экранов */
+.booking-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
 @media (max-width: 600px) {
   .booking-form {
     padding: 1.5rem 1rem;
@@ -164,7 +209,6 @@ html, body {
   }
 }
 
-/* Анимация появления */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -174,4 +218,8 @@ html, body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.input-field[type="date"] {
+  font-weight: normal;
 }

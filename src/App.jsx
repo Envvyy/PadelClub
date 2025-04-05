@@ -2,37 +2,30 @@ import React, { useState } from 'react';
 import './App.css';
 
 function BookingForm() {
-  // Основные поля формы
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-
-  // Слоты, полученные с сервера (GET-запрос)
-  // Формат: [{ time: "9:00", courts: [ { court_id, price }, ... ] }, ...]
   const [availableSlots, setAvailableSlots] = useState([]);
-  // Выбранные пользователем слоты: { time: "9:00", court: { court_id, price } }
   const [selectedBookings, setSelectedBookings] = useState([]);
-  // Сообщение об ошибках или успехе
   const [formMessage, setFormMessage] = useState('');
 
-  // Список часов (для выпадающих списков, строки вида "09:00")
-  const hours = [
-    '08:00','09:00','10:00','11:00','12:00',
-    '13:00','14:00','15:00','16:00','17:00',
-    '18:00','19:00','20:00','21:00','22:00'
-  ];
+  const BASE_URL = 'http://127.0.0.1:8000';
 
-  // URL вашего FastAPI‑сервера
-  const BASE_URL = 'http://109.73.201.110:8000';
+  const availableHours = [];
+  for (let hour = 8; hour <= 23; hour++) {
+    const timeString = hour.toString().padStart(2, '0') + ':00';
+    availableHours.push(timeString);
+  }
 
-  /**
-   * GET-запрос для получения свободного времени корта.
-   * Сервер ожидает: GET /free_time/{date}/{start_time}/{end_time}
-   * start_time и end_time — целые числа (например, 9 и 16).
-   */
+  const showPicker = (event) => {
+    if (event.target.showPicker) {
+      event.target.showPicker();
+    }
+  };
+
   const handleSearch = async () => {
     setFormMessage('');
     setAvailableSlots([]);
@@ -43,10 +36,8 @@ function BookingForm() {
       return;
     }
 
-    // Извлекаем числовой час из выбранных значений (например, "09:00" → 9)
     const startHour = parseInt(startTime.split(':')[0], 10);
     const endHour = parseInt(endTime.split(':')[0], 10);
-    console.log(startHour, endHour)
     const url = `${BASE_URL}/free_time/${date}/${startHour}/${endHour}`;
     try {
       const response = await fetch(url);
@@ -56,7 +47,7 @@ function BookingForm() {
         return;
       }
       const data = await response.json();
-      // Преобразуем объект с ключами-часами (например, "9", "10") в массив слотов
+
       const slots = Object.keys(data)
         .sort((a, b) => parseInt(a) - parseInt(b))
         .map(hourKey => ({
@@ -70,35 +61,21 @@ function BookingForm() {
     }
   };
 
-  /**
-   * Переключение выбора слота.
-   * При клике добавляется/удаляется выбранный корт для определённого времени.
-   */
   const toggleSelection = (slotTime, court) => {
     const exists = selectedBookings.find(
       (b) => b.time === slotTime && b.court.court_id === court.court_id
     );
     if (exists) {
-      setSelectedBookings(selectedBookings.filter(
-        (b) => !(b.time === slotTime && b.court.court_id === court.court_id)
-      ));
+      setSelectedBookings(
+        selectedBookings.filter(
+          (b) => !(b.time === slotTime && b.court.court_id === court.court_id)
+        )
+      );
     } else {
       setSelectedBookings([...selectedBookings, { time: slotTime, court }]);
     }
   };
 
-  /**
-   * POST-запрос для создания бронирования.
-   * Формируется объект, соответствующий модели BookingPost:
-   * {
-   *   "name": "...",
-   *   "email": "...",
-   *   "phone": "...",
-   *   "date": "YYYY-MM-DD",
-   *   "total_price": <число>,
-   *   "slots": { "1": [9, 10], "2": [11] }
-   * }
-   */
   const handleBooking = async () => {
     if (!name.trim() || !email.trim() || !phone.trim()) {
       setFormMessage('Пожалуйста, укажите имя, email и телефон для бронирования');
@@ -109,7 +86,6 @@ function BookingForm() {
       return;
     }
 
-    // Группируем выбранные слоты по court_id, собирая массив числовых start_time
     const slotsPayload = {};
     selectedBookings.forEach(booking => {
       const hour = parseInt(booking.time.split(':')[0], 10);
@@ -120,16 +96,16 @@ function BookingForm() {
       slotsPayload[courtId].push(hour);
     });
 
-    // Подсчитываем общую стоимость
     const totalPrice = selectedBookings.reduce(
-      (sum, booking) => sum + booking.court.price, 0
+      (sum, booking) => sum + booking.court.price,
+      0
     );
 
     const payload = {
       name,
       email,
       phone,
-      date,          // в формате "YYYY-MM-DD"
+      date,
       total_price: totalPrice,
       slots: slotsPayload
     };
@@ -148,48 +124,60 @@ function BookingForm() {
         return;
       }
       const data = await response.json();
-      setFormMessage(`✅ Бронирование успешно! Перейдите по ссылке для оплаты: ${data.url}`);
+      window.location.href = data.url;
     } catch (error) {
       console.error('Ошибка при отправке данных на бэкенд:', error);
       setFormMessage('Ошибка сети. Попробуйте позже.');
     }
   };
 
+  const totalPrice = selectedBookings.reduce(
+    (sum, booking) => sum + booking.court.price,
+    0
+  );
+
   return (
     <div className="booking-form">
       <h2>Бронирование</h2>
 
-      {/* Выбор даты */}
       <div className="form-group">
-        <label>Дата:</label>
+        <label>Выберите дату:</label>
         <input
           type="date"
           value={date}
+          onFocus={showPicker}     
+          onClick={showPicker}       
           onChange={(e) => {
             setDate(e.target.value);
             setFormMessage('');
           }}
           className="input-field"
+          required
         />
       </div>
 
-      {/* Выбор времени (только часы) */}
+      <h3 className="time-window-subheading">
+        Выберите временное окно, когда вы хотите забронировать корт:
+      </h3>
+
       <div className="form-group">
-        <label>Время начала:</label>
+        <label>Выберите время начала:</label>
         <select
           value={startTime}
           onChange={(e) => {
             setStartTime(e.target.value);
             setFormMessage('');
           }}
-          className="input-field"
+          className="input-field select-hour"
+          required
         >
           <option value="">Выберите время начала</option>
-          {hours.map((hour, i) => (
-            <option key={i} value={hour}>{hour}</option>
+          {availableHours.map((time, idx) => (
+            <option key={idx} value={time}>{time}</option>
           ))}
         </select>
       </div>
+
       <div className="form-group">
         <label>Время окончания:</label>
         <select
@@ -198,18 +186,18 @@ function BookingForm() {
             setEndTime(e.target.value);
             setFormMessage('');
           }}
-          className="input-field"
+          className="input-field select-hour"
+          required
         >
           <option value="">Выберите время окончания</option>
-          {hours.map((hour, i) => (
-            <option key={i} value={hour}>{hour}</option>
+          {availableHours.map((time, idx) => (
+            <option key={idx} value={time}>{time}</option>
           ))}
         </select>
       </div>
 
-      {/* Ввод имени, email и телефона */}
       <div className="form-group">
-        <label>Имя:</label>
+        <label>Имя (Обязательное поле):</label>
         <input
           type="text"
           value={name}
@@ -219,10 +207,12 @@ function BookingForm() {
           }}
           className="input-field"
           placeholder="Введите ваше имя"
+          required
         />
       </div>
+
       <div className="form-group">
-        <label>Email:</label>
+        <label>Email (Обязательное поле):</label>
         <input
           type="email"
           value={email}
@@ -232,10 +222,12 @@ function BookingForm() {
           }}
           className="input-field"
           placeholder="Введите ваш email"
+          required
         />
       </div>
+
       <div className="form-group">
-        <label>Телефон:</label>
+        <label>Телефон (Обязательное поле):</label>
         <input
           type="tel"
           value={phone}
@@ -245,15 +237,14 @@ function BookingForm() {
           }}
           className="input-field"
           placeholder="Введите номер телефона"
+          required
         />
       </div>
 
-      {/* Кнопка для получения свободных кортов */}
       <button onClick={handleSearch} className="btn">
         Найти доступные корты
       </button>
 
-      {/* Вывод слотов, полученных с сервера */}
       {availableSlots.length > 0 && (
         <div className="slots-container">
           <h3>Доступные слоты:</h3>
@@ -281,14 +272,14 @@ function BookingForm() {
         </div>
       )}
 
-      {/* Вывод сообщения */}
       {formMessage && <p className="form-message">{formMessage}</p>}
 
-      {/* Кнопка для отправки бронирования */}
       {availableSlots.length > 0 && (
-        <button onClick={handleBooking} className="btn">
-          Оплатить
-        </button>
+        <div className="booking-summary">
+          <button onClick={handleBooking} className="btn">
+            Забронировать ({totalPrice} руб.)
+          </button>
+        </div>
       )}
     </div>
   );
